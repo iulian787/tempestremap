@@ -47,6 +47,16 @@ void ApplyLocalMap(
 	Node & node
 );
 
+/// <summary>
+///   Apply the local map in the gnomonic plane, for CS mesh
+/// </summary>
+void ApplyLocalMapGnomonic(
+  const Face & face,
+  const NodeVector & nodes,
+  double dAlpha,
+  double dBeta,
+  Node & node
+);
 ///////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>

@@ -527,7 +527,7 @@ void OfflineMap::InitializeCoordinatesFromMeshFE(
 
 		Node node;
 
-		ApplyLocalMap(
+		ApplyLocalMapGnomonic(
 			face,
 			mesh.nodes,
 			dG[j],

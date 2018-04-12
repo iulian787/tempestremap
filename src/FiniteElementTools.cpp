@@ -67,7 +67,200 @@ void ApplyLocalMap(
 	node.y = dYc / dR;
 	node.z = dZc / dR;
 }
+// copy local utilities for gnomonic
 
+// vec utils related to gnomonic projection on a sphere
+
+// vec utils
+
+/*
+ *
+ * position on a sphere of radius R
+ * if plane specified, use it; if not, return the plane, and the point in the plane
+ * there are 6 planes, numbered 1 to 6
+ * plane 1: x=R, plane 2: y=R, 3: x=-R, 4: y=-R, 5: z=-R, 6: z=R
+ *
+ * projection on the plane will preserve the orientation, such that a triangle, quad pointing
+ * outside the sphere will have a positive orientation in the projection plane
+ */
+void decide_gnomonic_plane(Node & pos, int & plane) {
+  // decide plane, based on max x, y, z
+  if (fabs(pos.x) < fabs(pos.y)) {
+    if (fabs(pos.z) < fabs(pos.y)) {
+      // pos.y is biggest
+      if (pos.y > 0)
+        plane = 2;
+      else
+        plane = 4;
+    } else {
+      // pos.z is biggest
+      if (pos.z < 0)
+        plane = 5;
+      else
+        plane = 6;
+    }
+  } else {
+    if (fabs(pos.z) < fabs(pos.x)) {
+      // pos[0] is the greatest
+      if (pos.x > 0)
+        plane = 1;
+      else
+        plane = 3;
+    } else {
+      // pos[2] is biggest
+      if (pos.z < 0)
+        plane = 5;
+      else
+        plane = 6;
+    }
+  }
+  return;
+}
+// point on a sphere is projected on one of six planes, decided earlier
+void gnomonic_projection(const Node & pos, double R, int plane, double & c1,
+    double & c2) {
+  double alfa = 1.; // the new point will be on line alfa*pos
+
+  switch (plane) {
+  case 1: {
+    // the plane with x = R; x>y, x>z
+    // c1->y, c2->z
+    alfa = R / pos.x;
+    c1 = alfa * pos.y;
+    c2 = alfa * pos.z;
+    break;
+  }
+  case 2: {
+    // y = R -> zx
+    alfa = R / pos.y;
+    c1 = alfa * pos.z;
+    c2 = alfa * pos.x;
+    break;
+  }
+  case 3: {
+    // x=-R, -> yz
+    alfa = -R / pos.x;
+    c1 = -alfa * pos.y; // the sign is to preserve orientation
+    c2 = alfa * pos.z;
+    break;
+  }
+  case 4: {
+    // y = -R
+    alfa = -R / pos.y;
+    c1 = -alfa * pos.z; // the sign is to preserve orientation
+    c2 = alfa * pos.x;
+    break;
+  }
+  case 5: {
+    // z = -R
+    alfa = -R / pos.z;
+    c1 = -alfa * pos.x; // the sign is to preserve orientation
+    c2 = alfa * pos.y;
+    break;
+  }
+  case 6: {
+    alfa = R / pos.z;
+    c1 = alfa * pos.x;
+    c2 = alfa * pos.y;
+    break;
+  }
+  }
+  return;
+}
+
+// given the position on plane (one out of 6), find out the position on sphere
+void reverse_gnomonic_projection(const double & c1, const double & c2, double R,
+    int plane, Node & pos) {
+  // the new point will be on line beta*pos
+  double len = sqrt(c1 * c1 + c2 * c2 + R * R);
+  double beta = R / len; // it is less than 1, in general
+
+  switch (plane) {
+  case 1: {
+    // the plane with x = R; x>y, x>z
+    // c1->y, c2->z
+    pos.x = beta * R;
+    pos.y = c1 * beta;
+    pos.z = c2 * beta;
+    break;
+  }
+  case 2: {
+    // y = R -> zx
+    pos.y = R * beta;
+    pos.z = c1 * beta;
+    pos.x = c2 * beta;
+    break;
+  }
+  case 3: {
+    // x=-R, -> yz
+    pos.x = -R * beta;
+    pos.y = -c1 * beta; // the sign is to preserve orientation
+    pos.z = c2 * beta;
+    break;
+  }
+  case 4: {
+    // y = -R
+    pos.y = -R * beta;
+    pos.z = -c1 * beta; // the sign is to preserve orientation
+    pos.x = c2 * beta;
+    break;
+  }
+  case 5: {
+    // z = -R
+    pos.z = -R * beta;
+    pos.x = -c1 * beta; // the sign is to preserve orientation
+    pos.y = c2 * beta;
+    break;
+  }
+  case 6: {
+    pos.z = R * beta;
+    pos.x = c1 * beta;
+    pos.y = c2 * beta;
+    break;
+  }
+
+  }
+
+  return;
+}
+// end copy
+void ApplyLocalMapGnomonic(
+  const Face & face,
+  const NodeVector & nodes,
+  double dAlpha,
+  double dBeta,
+  Node & node
+)
+{
+  // first decide gnomonic plane of face, then project quad in plane, then map in plane,
+  // then project back on sphere
+  Node center1 = nodes[face[0]]+nodes[face[2]]; //along diagonal
+  int plane = 1;
+  decide_gnomonic_plane(center1, plane);
+  // gnomonic_projection
+  Node newPos[4]; // everything initialized to 0
+  for (int k=0; k<4; k++)
+  {
+    double x,y;
+    gnomonic_projection(nodes[face[k]], 1.0, plane, x, y );
+    newPos[k].x = atan(x);
+    newPos[k].y = atan(y);
+  }
+  // apply map in the gnomonic plane, for x and y
+  double dXc =
+        newPos[0].x * (1.0 - dAlpha) * (1.0 - dBeta)
+      + newPos[1].x *        dAlpha  * (1.0 - dBeta)
+      + newPos[2].x *        dAlpha  *        dBeta
+      + newPos[3].x * (1.0 - dAlpha) *        dBeta;
+
+  double dYc =
+      newPos[0].y * (1.0 - dAlpha) * (1.0 - dBeta)
+    + newPos[1].y *        dAlpha  * (1.0 - dBeta)
+    + newPos[2].y *        dAlpha  *        dBeta
+    + newPos[3].y * (1.0 - dAlpha) *        dBeta;
+
+  reverse_gnomonic_projection(tan(dXc), tan(dYc), 1.0, plane, node);
+}
 ///////////////////////////////////////////////////////////////////////////////
 
 void ApplyLocalMap(

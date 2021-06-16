@@ -17,6 +17,8 @@
 #ifndef _GRIDELEMENTS_H_
 #define _GRIDELEMENTS_H_
 
+#define MOAB_DBG
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Defines.h"
@@ -558,6 +560,9 @@ public:
 	///		counter-clockwise order.
 	///	</summary>
 	EdgeVector edges;
+#ifdef MOAB_DBG
+	int global_id;
+#endif
 
 public:
 	///	<summary>
@@ -610,6 +615,12 @@ public:
 	///		Remove zero Edges (Edges with repeated Node indices)
 	///	</summary>
 	void RemoveZeroEdges();
+#ifdef MOAB_DBG
+	/// set global id the same as MOABs; use to identify the cell in parallel
+    void SetGlobalID( int gid) {global_id = gid;};
+    // return global id; unique identifier in parallel
+    int  GetGlobalID() { return global_id;};
+#endif
 };
 
 ///	<summary>
